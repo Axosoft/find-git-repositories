@@ -36,12 +36,9 @@
     "mocha": "^3.2.0"
   },
   "keywords": [
-    "FileWatcher",
-    "files",
-    "watch",
-    "filewatch",
-    "file",
-    "inotify",
-    "fsevents"
+    "git",
+    "find",
+    "search",
+    "repositories"
   ]
 }
