@@ -1,5 +1,5 @@
 {
-  "name": "FindGitRepos",
+  "name": "find-git-repositories",
   "version": "0.0.1",
   "description": "Finds Git Repos asynchronously",
   "main": "dist/index.js",
