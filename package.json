@@ -11,12 +11,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/implausible/findGitRepos.git"
+    "url": "git+https://github.com/implausible/find-git-repositories.git"
   },
   "author": "Tyler Wanek",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/implausible/findGitRepos/issues"
+    "url": "https://github.com/implausible/find-git-repositories/issues"
   },
   "files": [
     "dist",
@@ -25,7 +25,7 @@
     "openpa",
     "binding.gyp"
   ],
-  "homepage": "https://github.com/implausible/findGitRepos",
+  "homepage": "https://github.com/implausible/find-git-repositories",
   "dependencies": {
     "nan": "^2.0.0"
   },
