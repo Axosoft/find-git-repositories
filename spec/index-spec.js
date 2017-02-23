@@ -22,7 +22,7 @@ describe('findGitRepos', function() {
   });
 
   describe('Features', function() {
-    this.timeout(120000);
+    this.timeout(240000);
 
     const basePath = path.resolve('.', 'fs');
     const breadth = 5;
