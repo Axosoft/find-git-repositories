@@ -21,18 +21,20 @@ NAN_METHOD(FindGitRepos)
 }
 
 FindGitReposWorker::FindGitReposWorker(std::string path, Callback *progressCallback, Callback *completionCallback):
-  AsyncWorker(completionCallback), mPath(path), mProgressCallback(progressCallback)
+  AsyncWorker(completionCallback), mPath(path)
 {
-  uv_async_init(uv_default_loop(), &mProgressCallbackAsync, &FindGitReposWorker::FireProgressCallback);
-  mBaton.progressCallback = mProgressCallback;
-  mBaton.progressQueue = &mProgressQueue;
-  mProgressCallbackAsync.data = (void *)&mBaton;
+  mProgressAsyncHandle = new uv_async_t;
+
+  uv_async_init(uv_default_loop(), mProgressAsyncHandle, &FindGitReposWorker::FireProgressCallback);
+
+  mBaton = new FindGitReposProgressBaton;
+  mBaton->progressCallback = progressCallback;
+  mProgressAsyncHandle->data = reinterpret_cast<void *>(mBaton);
 }
 
 void FindGitReposWorker::Execute() {
   uv_dirent_t directoryEntry;
   uv_fs_t scandirRequest;
-  int error;
   std::queue<std::string> pathQueue;
   pathQueue.push(mPath);
 
@@ -52,9 +54,9 @@ void FindGitReposWorker::Execute() {
       std::string nextPath = currentPath + "/" + directoryEntry.name;
 
       if (!strcmp(directoryEntry.name, ".git")) {
-        mProgressQueue.enqueue(nextPath);
+        mBaton->progressQueue.enqueue(nextPath);
         mRepositories.push_back(nextPath);
-        uv_async_send(&mProgressCallbackAsync);
+        uv_async_send(mProgressAsyncHandle);
         continue;
       }
 
@@ -63,16 +65,16 @@ void FindGitReposWorker::Execute() {
   }
 }
 
-void FindGitReposWorker::FireProgressCallback(uv_async_t *handle) {
+void FindGitReposWorker::FireProgressCallback(uv_async_t *progressAsyncHandle) {
   Nan::HandleScope scope;
-  FindGitReposProgressBaton *baton = (FindGitReposProgressBaton *)handle->data;
+  FindGitReposProgressBaton *baton = reinterpret_cast<FindGitReposProgressBaton *>(progressAsyncHandle->data);
 
-  int numRepos = baton->progressQueue->count();
+  int numRepos = baton->progressQueue.count();
 
   v8::Local<v8::Array> repositoryArray = New<v8::Array>(numRepos);
 
-  for (unsigned int i = 0; i < numRepos; ++i) {
-    repositoryArray->Set(i, New<v8::String>(baton->progressQueue->dequeue()).ToLocalChecked());
+  for (unsigned int i = 0; i < (unsigned int)numRepos; ++i) {
+    repositoryArray->Set(i, New<v8::String>(baton->progressQueue.dequeue()).ToLocalChecked());
   }
 
   v8::Local<v8::Value> argv[] = { repositoryArray };
@@ -80,11 +82,17 @@ void FindGitReposWorker::FireProgressCallback(uv_async_t *handle) {
   baton->progressCallback->Call(1, argv);
 }
 
+void FindGitReposWorker::CleanUpProgressBatonAndHandle(uv_handle_t *progressAsyncHandle) {
+  // Libuv is done with this handle in this callback
+  FindGitReposProgressBaton *baton = reinterpret_cast<FindGitReposProgressBaton *>(progressAsyncHandle->data);
+  baton->progressQueue.clear();
+  delete baton->progressCallback;
+  delete baton;
+  delete reinterpret_cast<uv_async_t *>(progressAsyncHandle);
+}
+
 void FindGitReposWorker::HandleOKCallback() {
-  // clean up our resources
-  uv_close(reinterpret_cast<uv_handle_t*>(&mProgressCallbackAsync), NULL);
-  delete mProgressCallback;
-  mProgressQueue.clear();
+  uv_close(reinterpret_cast<uv_handle_t*>(mProgressAsyncHandle), &FindGitReposWorker::CleanUpProgressBatonAndHandle);
 
   // dump vector of repositories into js callback
   v8::Local<v8::Array> repositoryArray = New<v8::Array>((int)mRepositories.size());
