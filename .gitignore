@@ -3,3 +3,4 @@ build
 dist
 test
 npm-debug.log
+fs

@@ -1,10 +1,18 @@
 const { findGitRepos } = require('../build/Release/findGitRepos.node');
 
-const normalizeStartingPath = _path => process.platform === 'win32'
-  ? _path.replace(/\\/g, '/')
-  : _path;
+const normalizeStartingPath = _path => {
+  const pathWithNormalizedSlashes = process.platform === 'win32'
+    ? _path.replace(/\\/g, '/')
+    : _path;
+
+  return pathWithNormalizedSlashes.replace(/\/+$/, '');
+};
 
 const normalizeRepositoryPath = _path => _path.replace(/\//g, '\\');
+
+const normalizePathCallback = callback => process.platform === 'win32'
+  ? paths => callback(paths.map(normalizeRepositoryPath))
+  : callback;
 
 module.exports = (startingPath, progressCallback) => new Promise((resolve, reject) => {
   if (!startingPath && startingPath !== '') {
@@ -17,16 +25,12 @@ module.exports = (startingPath, progressCallback) => new Promise((resolve, rejec
     return;
   }
 
-  const normalizedArguments = process.platform === 'win32'
-    ? [
-      normalizeStartingPath(startingPath),
-      paths => progressCallback(paths.map(normalizeRepositoryPath)),
-      paths => resolve(paths.map(normalizeRepositoryPath))
-    ]
-    : [startingPath, progressCallback, resolve];
-
   try {
-    findGitRepos(...normalizedArguments);
+    findGitRepos(
+      normalizeStartingPath(startingPath),
+      normalizePathCallback(progressCallback),
+      normalizePathCallback(resolve)
+    );
   } catch (error) {
     reject(error);
   }
