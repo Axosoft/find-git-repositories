@@ -1,5 +1,10 @@
 #include "../includes/FindGitRepos.h"
 
+#if defined(_WIN32)
+#define S_ISDIR(m) ((m & 0170000 == 0040000))
+#define S_ISLNK(m) ((m & 0170000 == 0120000))
+#endif
+
 NAN_METHOD(FindGitRepos)
 {
   if (info.Length() < 1 || !info[0]->IsString())
@@ -47,11 +52,22 @@ void FindGitReposWorker::Execute() {
     }
 
     while (uv_fs_scandir_next(&scandirRequest, &directoryEntry) != UV_EOF) {
-      if (directoryEntry.type != UV_DIRENT_DIR) {
+      std::string nextPath = currentPath + "/" + directoryEntry.name;
+
+      if (
+        directoryEntry.type == UV_DIRENT_UNKNOWN
+      ) {
+        uv_fs_t lstatRequest;
+        if (
+          uv_fs_lstat(NULL, &lstatRequest, nextPath.c_str(), NULL) < 0
+          || !S_ISDIR(lstatRequest.statbuf.st_mode)
+          || S_ISLNK(lstatRequest.statbuf.st_mode)
+        ) {
+          continue;
+        }
+      } else if (directoryEntry.type != UV_DIRENT_DIR) {
         continue;
       }
-
-      std::string nextPath = currentPath + "/" + directoryEntry.name;
 
       if (!strcmp(directoryEntry.name, ".git")) {
         mBaton->progressQueue.enqueue(nextPath);

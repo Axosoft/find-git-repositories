@@ -43,11 +43,6 @@ describe('findGitRepos', function() {
       });
     });
 
-    after(function() {
-      mlog.log(`[FS] Cleaning`);
-      rimraf.sync(basePath);
-    });
-
     it('can find all repositories in a file system', function(done) {
       const { repositoryPaths } = this;
       let callbackPromisesChain = Promise.resolve();
