@@ -1,4 +1,5 @@
 const assert = require('assert');
+const fs = require('fs');
 const mlog = require('mocha-logger');
 const path = require('path');
 const rimraf = require('rimraf');
@@ -62,6 +63,55 @@ describe('findGitRepos', function() {
             repositoryPaths[repositoryPath] = true;
           }), callbackPromisesChain);
       };
+
+      findGitRepos(basePath, progressCallback)
+        .then(paths => Promise.all([paths, callbackPromisesChain]))
+        .then(([paths]) => {
+          assert.equal(triggeredProgressCallbackOnce, true, 'Never called progress callback');
+          paths.forEach(repositoryPath => {
+            assert.equal(
+              repositoryPaths[repositoryPath],
+              Boolean(repositoryPaths[repositoryPath]),
+              'Found a repo that should not exist'
+            );
+            repositoryPaths[repositoryPath] = true;
+          });
+
+          Object.keys(repositoryPaths).forEach(repositoryPath => {
+            assert.equal(repositoryPaths[repositoryPath], true, 'Did not find a path in the file system');
+          });
+        })
+        .then(() => done())
+        .catch(error => done(error));
+    });
+
+    it('will not follow symlinks', function(done) {
+      const { repositoryPaths } = this;
+      const linkPathA = path.resolve(basePath, 'folder_a');
+      const linkPathB = path.resolve(basePath, 'folder_b');
+      let callbackPromisesChain = Promise.resolve();
+      let triggeredProgressCallbackOnce = false;
+
+      const progressCallback = paths => {
+        triggeredProgressCallbackOnce = true;
+
+        callbackPromisesChain = paths.reduce((chain, repositoryPath) =>
+          chain.then(() => {
+            assert.equal(
+              repositoryPaths[repositoryPath],
+              Boolean(repositoryPaths[repositoryPath]),
+              'Found a repo that should not exist'
+            );
+            assert.equal(repositoryPaths[repositoryPath], false, 'Duplicate repositoryPath received');
+            repositoryPaths[repositoryPath] = true;
+          }), callbackPromisesChain);
+      };
+
+      // set up link loop
+      fs.mkdirSync(linkPathA);
+      fs.mkdirSync(linkPathB);
+      fs.symlinkSync(linkPathB, path.join(linkPathA, 'to_b'));
+      fs.symlinkSync(linkPathA, path.join(linkPathB, 'to_a'));
 
       findGitRepos(basePath, progressCallback)
         .then(paths => Promise.all([paths, callbackPromisesChain]))
