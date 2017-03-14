@@ -2,7 +2,6 @@ const assert = require('assert');
 const fs = require('fs');
 const mlog = require('mocha-logger');
 const path = require('path');
-const rimraf = require('rimraf');
 
 const createTree = require('./createTree');
 const findGitRepos = require('../');
@@ -23,7 +22,7 @@ describe('findGitRepos', function() {
   });
 
   describe('Features', function() {
-    this.timeout(240000);
+    this.timeout(4 * 60 * 1000);
 
     const basePath = path.resolve('.', 'fs');
     const breadth = 5;
@@ -133,5 +132,66 @@ describe('findGitRepos', function() {
         .then(() => done())
         .catch(error => done(error));
     });
+
+    if (process.platform === 'win32') {
+      it('will work when given the disk to search', function(done) {
+        this.timeout(15 * 60 * 1000);
+
+        const { repositoryPaths } = this;
+        let callbackPromisesChain = Promise.resolve();
+        let triggeredProgressCallbackOnce = false;
+
+        const progressCallback = paths => {
+          triggeredProgressCallbackOnce = true;
+
+          callbackPromisesChain = paths.reduce((chain, repositoryPath) =>
+            chain.then(() => {
+              // only check repositories we know should exist
+              if (
+                repositoryPath.indexOf(path.resolve('.')) !== 0 ||
+                path.dirname(repositoryPath) === path.resolve('.')
+              ) {
+                return;
+              }
+
+              assert.equal(
+                repositoryPaths[repositoryPath],
+                Boolean(repositoryPaths[repositoryPath]),
+                `Found a repo that should not exist, ${repositoryPath}`
+              );
+              assert.equal(repositoryPaths[repositoryPath], false, 'Duplicate repositoryPath received');
+              repositoryPaths[repositoryPath] = true;
+            }), callbackPromisesChain);
+        };
+
+        findGitRepos('C:\\', progressCallback)
+          .then(paths => Promise.all([paths, callbackPromisesChain]))
+          .then(([paths]) => {
+            assert.equal(triggeredProgressCallbackOnce, true, 'Never called progress callback');
+            paths.forEach(repositoryPath => {
+              // only check repositories we know should exist
+              if (
+                repositoryPath.indexOf(path.resolve('.')) !== 0 ||
+                path.dirname(repositoryPath) === path.resolve('.')
+              ) {
+                return;
+              }
+
+              assert.equal(
+                repositoryPaths[repositoryPath],
+                Boolean(repositoryPaths[repositoryPath]),
+                `Found a repo that should not exist, ${repositoryPath}`
+              );
+              repositoryPaths[repositoryPath] = true;
+            });
+
+            Object.keys(repositoryPaths).forEach(repositoryPath => {
+              assert.equal(repositoryPaths[repositoryPath], true, 'Did not find a path in the file system');
+            });
+          })
+          .then(() => done())
+          .catch(error => done(error));
+      });
+    }
   });
 });
