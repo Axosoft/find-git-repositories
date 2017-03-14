@@ -22,7 +22,7 @@ describe('findGitRepos', function() {
   });
 
   describe('Features', function() {
-    this.timeout(240000);
+    this.timeout(4 * 60 * 1000);
 
     const basePath = path.resolve('.', 'fs');
     const breadth = 5;
@@ -134,7 +134,9 @@ describe('findGitRepos', function() {
     });
 
     if (process.platform === 'win32') {
-      it.only('will work when given the disk to search', function(done) {
+      it('will work when given the disk to search', function(done) {
+        this.timeout(15 * 60 * 1000);
+
         const { repositoryPaths } = this;
         let callbackPromisesChain = Promise.resolve();
         let triggeredProgressCallbackOnce = false;
