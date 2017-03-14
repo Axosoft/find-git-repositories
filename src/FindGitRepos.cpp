@@ -47,12 +47,13 @@ void FindGitReposWorker::Execute() {
     std::string currentPath = pathQueue.front();
     pathQueue.pop();
 
-    if (uv_fs_scandir(NULL, &scandirRequest, currentPath.c_str(), 0, NULL) < 0) {
+    if (uv_fs_scandir(NULL, &scandirRequest, (currentPath + '/').c_str(), 0, NULL) < 0) {
       continue;
     }
 
+
     while (uv_fs_scandir_next(&scandirRequest, &directoryEntry) != UV_EOF) {
-      std::string nextPath = currentPath + "/" + directoryEntry.name;
+      std::string nextPath = currentPath + '/' + directoryEntry.name;
 
       if (
         directoryEntry.type == UV_DIRENT_UNKNOWN
