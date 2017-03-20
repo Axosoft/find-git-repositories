@@ -5,6 +5,7 @@
 #include <uv.h>
 #include <vector>
 #include <queue>
+#include <chrono>
 
 #include "./Queue.h"
 
@@ -31,7 +32,7 @@ private:
   void ThrottledProgressCallback();
 
   FindGitReposProgressBaton *mBaton;
-  uint64_t mNextScheduledCallbackMS;
+  std::chrono::steady_clock::time_point mLastScheduledCallbackMS;
   std::string mPath;
   uv_async_t *mProgressAsyncHandle;
   std::vector<std::string> mRepositories;

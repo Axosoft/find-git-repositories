@@ -63,7 +63,7 @@ describe('findGitRepos', function() {
           }), callbackPromisesChain);
       };
 
-      findGitRepos(basePath, progressCallback)
+      findGitRepos(basePath, progressCallback, { throttleTimeoutMS: 100 })
         .then(paths => Promise.all([paths, callbackPromisesChain]))
         .then(([paths]) => {
           assert.equal(triggeredProgressCallbackOnce, true, 'Never called progress callback');
