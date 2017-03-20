@@ -10,24 +10,28 @@ NAN_METHOD(FindGitRepos)
   if (info.Length() < 1 || !info[0]->IsString())
     return ThrowError("Must provide starting path as first argument.");
 
-  if (info.Length() < 2 || !info[1]->IsFunction())
-    return ThrowError("Must provide progress callback as second argument.");
+  if (info.Length() < 2 || !info[1]->IsUint32())
+    return ThrowError("Must provide throttle timeout as second argument.");
 
   if (info.Length() < 3 || !info[2]->IsFunction())
-    return ThrowError("Must provide completion callback as third argument.");
+    return ThrowError("Must provide progress callback as third argument.");
+
+  if (info.Length() < 4 || !info[3]->IsFunction())
+    return ThrowError("Must provide completion callback as fourth argument.");
 
   v8::String::Utf8Value utf8Value(info[0]->ToString());
   std::string path = std::string(*utf8Value);
 
-  Callback *progressCallback = new Callback(info[1].As<v8::Function>()),
-           *completionCallback = new Callback(info[2].As<v8::Function>());
+  Callback *progressCallback = new Callback(info[2].As<v8::Function>()),
+           *completionCallback = new Callback(info[3].As<v8::Function>());
 
-  AsyncQueueWorker(new FindGitReposWorker(path, progressCallback, completionCallback));
+  AsyncQueueWorker(new FindGitReposWorker(path, info[1]->Uint32Value(), progressCallback, completionCallback));
 }
 
-FindGitReposWorker::FindGitReposWorker(std::string path, Callback *progressCallback, Callback *completionCallback):
-  AsyncWorker(completionCallback), mPath(path)
+FindGitReposWorker::FindGitReposWorker(std::string path, uint32_t throttleTimeoutMS, Callback *progressCallback, Callback *completionCallback):
+  AsyncWorker(completionCallback), mPath(path), mThrottleTimeoutMS(throttleTimeoutMS)
 {
+  mNextScheduledCallbackMS = uv_now(uv_default_loop());
   mProgressAsyncHandle = new uv_async_t;
 
   uv_async_init(uv_default_loop(), mProgressAsyncHandle, &FindGitReposWorker::FireProgressCallback);
@@ -73,7 +77,7 @@ void FindGitReposWorker::Execute() {
       if (!strcmp(directoryEntry.name, ".git")) {
         mBaton->progressQueue.enqueue(nextPath);
         mRepositories.push_back(nextPath);
-        uv_async_send(mProgressAsyncHandle);
+        ThrottledProgressCallback();
         continue;
       }
 
@@ -121,6 +125,22 @@ void FindGitReposWorker::HandleOKCallback() {
   v8::Local<v8::Value> argv[] = { repositoryArray };
 
   callback->Call(1, argv);
+}
+
+void FindGitReposWorker::ThrottledProgressCallback() {
+  if (mThrottleTimeoutMS == 0) {
+    uv_async_send(mProgressAsyncHandle);
+    return;
+  }
+
+  uint64_t now = uv_now(uv_default_loop());
+  if (mNextScheduledCallbackMS > now) {
+    return;
+  }
+
+  uv_async_send(mProgressAsyncHandle);
+
+  mNextScheduledCallbackMS = now + mThrottleTimeoutMS;
 }
 
 NAN_MODULE_INIT(Init)

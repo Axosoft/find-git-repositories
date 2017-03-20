@@ -14,11 +14,15 @@ const normalizePathCallback = callback => process.platform === 'win32'
   ? paths => callback(paths.map(normalizeRepositoryPath))
   : callback;
 
-module.exports = (startingPath, progressCallback) => new Promise((resolve, reject) => {
+module.exports = (startingPath, progressCallback, options = {}) => new Promise((resolve, reject) => {
   if (!startingPath && startingPath !== '') {
     reject(new Error('Must provide starting path as first argument.'));
     return;
   }
+
+  const {
+    throttleTimeoutMS = 0
+  } = options;
 
   if (!progressCallback) {
     reject(new Error('Must provide progress callback as second argument.'));
@@ -28,6 +32,7 @@ module.exports = (startingPath, progressCallback) => new Promise((resolve, rejec
   try {
     findGitRepos(
       normalizeStartingPath(startingPath),
+      throttleTimeoutMS,
       normalizePathCallback(progressCallback),
       normalizePathCallback(resolve)
     );
