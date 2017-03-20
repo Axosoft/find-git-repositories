@@ -28,10 +28,10 @@ NAN_METHOD(FindGitRepos)
   AsyncQueueWorker(new FindGitReposWorker(path, info[1]->Uint32Value(), progressCallback, completionCallback));
 }
 
-FindGitReposWorker::FindGitReposWorker(std::string path, uint32_t throttleTimeoutMS, Callback *progressCallback, Callback *completionCallback):
+FindGitReposWorker::FindGitReposWorker(std::string path, uint64_t throttleTimeoutMS, Callback *progressCallback, Callback *completionCallback):
   AsyncWorker(completionCallback), mPath(path), mThrottleTimeoutMS(throttleTimeoutMS)
 {
-  mLastScheduledCallbackMS = std::chrono::steady_clock::now();
+  mLastScheduledCallback = uv_hrtime() / 1000000;
   mProgressAsyncHandle = new uv_async_t;
 
   uv_async_init(uv_default_loop(), mProgressAsyncHandle, &FindGitReposWorker::FireProgressCallback);
@@ -133,15 +133,14 @@ void FindGitReposWorker::ThrottledProgressCallback() {
     return;
   }
 
-  auto now = std::chrono::steady_clock::now();
-  auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - mLastScheduledCallbackMS);
-  if (mThrottleTimeoutMS > diff.count()) {
+  uint64_t now = uv_hrtime() / 1000000;
+  if ((now - mLastScheduledCallback) < mThrottleTimeoutMS) {
     return;
   }
 
   uv_async_send(mProgressAsyncHandle);
 
-  mLastScheduledCallbackMS = now;
+  mLastScheduledCallback = now;
 }
 
 NAN_MODULE_INIT(Init)
