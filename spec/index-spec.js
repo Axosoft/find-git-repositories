@@ -25,15 +25,19 @@ describe('findGitRepos', function() {
     this.timeout(4 * 60 * 1000);
 
     const basePath = path.resolve('.', 'fs');
-    const breadth = 5;
+    const breadth = 8;
     const depth = 8;
 
     before(function() {
+      const start = Date.now();
       const { numDirs, repositoryPaths } = createTree(basePath, breadth, depth);
-      this.repositoryPaths = repositoryPaths;
-      mlog.log(`[FS] Breadth: ${breadth}`);
-      mlog.log(`[FS] Depth: ${depth}`);
+
+      mlog.log(`[FS] Time to Generate Test Tree: ${Date.now() - start}ms`);
+      mlog.log(`[FS] Max Breadth: ${breadth}`);
+      mlog.log(`[FS] Max Depth: ${depth}`);
       mlog.log(`[FS] Directory Count: ${numDirs}`);
+
+      this.repositoryPaths = repositoryPaths;
     });
 
     beforeEach(function() {
