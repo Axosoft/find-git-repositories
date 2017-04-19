@@ -44,24 +44,23 @@ FindGitReposWorker::FindGitReposWorker(std::string path, uint64_t throttleTimeou
 void FindGitReposWorker::Execute() {
   uv_dirent_t directoryEntry;
   uv_fs_t scandirRequest;
-  std::queue<std::string> pathQueue;
-  pathQueue.push(mPath);
+  std::list<std::string> foundPaths;
+  foundPaths.push_back(mPath);
 
-  while (pathQueue.size()) {
-    std::string currentPath = pathQueue.front();
-    pathQueue.pop();
+  while (foundPaths.size()) {
+    std::list<std::string> temp;
+    bool isGitRepo = false;
+    std::string currentPath = foundPaths.front();
+    foundPaths.pop_front();
 
     if (uv_fs_scandir(NULL, &scandirRequest, (currentPath + '/').c_str(), 0, NULL) < 0) {
       continue;
     }
 
-
     while (uv_fs_scandir_next(&scandirRequest, &directoryEntry) != UV_EOF) {
       std::string nextPath = currentPath + '/' + directoryEntry.name;
 
-      if (
-        directoryEntry.type == UV_DIRENT_UNKNOWN
-      ) {
+      if (directoryEntry.type == UV_DIRENT_UNKNOWN) {
         uv_fs_t lstatRequest;
         if (
           uv_fs_lstat(NULL, &lstatRequest, nextPath.c_str(), NULL) < 0
@@ -74,14 +73,19 @@ void FindGitReposWorker::Execute() {
         continue;
       }
 
-      if (!strcmp(directoryEntry.name, ".git")) {
-        mBaton->progressQueue.enqueue(nextPath);
-        mRepositories.push_back(nextPath);
-        ThrottledProgressCallback();
+      if (strcmp(directoryEntry.name, ".git")) {
+        temp.push_back(nextPath);
         continue;
       }
 
-      pathQueue.push(nextPath);
+      isGitRepo = true;
+      mBaton->progressQueue.enqueue(nextPath);
+      mRepositories.push_back(nextPath);
+      ThrottledProgressCallback();
+    }
+
+    if (!isGitRepo) {
+      foundPaths.splice(foundPaths.end(), temp);
     }
   }
 }

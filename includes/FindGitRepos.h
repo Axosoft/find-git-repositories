@@ -4,7 +4,7 @@
 #include <nan.h>
 #include <uv.h>
 #include <vector>
-#include <queue>
+#include <list>
 
 #include "./Queue.h"
 
