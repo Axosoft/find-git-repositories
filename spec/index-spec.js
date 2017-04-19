@@ -24,7 +24,10 @@ describe('findGitRepos', function() {
   describe('Features', function() {
     this.timeout(4 * 60 * 1000);
 
-    const basePath = path.resolve('.', 'fs');
+    const rootPath = path.parse(path.resolve('.')).root;
+    const basePath = process.platform === 'win32'
+      ? path.join(rootPath, 'fs')
+      : path.resolve('.', 'fs');
     const breadth = 8;
     const depth = 8;
 
@@ -151,10 +154,7 @@ describe('findGitRepos', function() {
           callbackPromisesChain = paths.reduce((chain, repositoryPath) =>
             chain.then(() => {
               // only check repositories we know should exist
-              if (
-                repositoryPath.indexOf(path.resolve('.')) !== 0 ||
-                path.dirname(repositoryPath) === path.resolve('.')
-              ) {
+              if (repositoryPath.indexOf(basePath) !== 0) {
                 return;
               }
 
@@ -174,10 +174,7 @@ describe('findGitRepos', function() {
             assert.equal(triggeredProgressCallbackOnce, true, 'Never called progress callback');
             paths.forEach(repositoryPath => {
               // only check repositories we know should exist
-              if (
-                repositoryPath.indexOf(path.resolve('.')) !== 0 ||
-                path.dirname(repositoryPath) === path.resolve('.')
-              ) {
+              if (repositoryPath.indexOf(basePath) !== 0) {
                 return;
               }
 
