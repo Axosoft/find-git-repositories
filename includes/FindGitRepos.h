@@ -24,18 +24,18 @@ public:
   static void CleanUpProgressBatonAndHandle(uv_handle_t *progressAsyncHandle);
   static void FireProgressCallback(uv_async_t *progressAsyncHandle);
 
-  FindGitReposWorker(std::string path, uint64_t throttleTimeoutMS, Callback *progressCallback, Callback *completionCallback);
+  FindGitReposWorker(std::string path, uint32_t throttleTimeoutMS, Callback *progressCallback, Callback *completionCallback);
   void Execute();
   void HandleOKCallback();
 private:
   void ThrottledProgressCallback();
 
   FindGitReposProgressBaton *mBaton;
-  uint64_t mLastScheduledCallback;
+  uint32_t mLastScheduledCallback;
   std::string mPath;
   uv_async_t *mProgressAsyncHandle;
   std::vector<std::string> mRepositories;
-  uint64_t mThrottleTimeoutMS;
+  uint32_t mThrottleTimeoutMS;
 };
 
 #endif

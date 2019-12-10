@@ -27,7 +27,7 @@
   ],
   "homepage": "https://github.com/implausible/find-git-repositories",
   "dependencies": {
-    "nan": "^2.0.0"
+    "nan": "^2.14.0"
   },
   "devDependencies": {
     "babel-cli": "^6.5.1",

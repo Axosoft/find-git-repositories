@@ -19,16 +19,16 @@ NAN_METHOD(FindGitRepos)
   if (info.Length() < 4 || !info[3]->IsFunction())
     return ThrowError("Must provide completion callback as fourth argument.");
 
-  v8::String::Utf8Value utf8Value(info[0]->ToString());
-  std::string path = std::string(*utf8Value);
+  Nan::Utf8String utf8Path(Nan::To<v8::String>(info[0]).ToLocalChecked());
+  std::string path = std::string(*utf8Path);
 
   Callback *progressCallback = new Callback(info[2].As<v8::Function>()),
            *completionCallback = new Callback(info[3].As<v8::Function>());
 
-  AsyncQueueWorker(new FindGitReposWorker(path, info[1]->Uint32Value(), progressCallback, completionCallback));
+  AsyncQueueWorker(new FindGitReposWorker(path, Nan::To<uint32_t>(info[1]).FromJust(), progressCallback, completionCallback));
 }
 
-FindGitReposWorker::FindGitReposWorker(std::string path, uint64_t throttleTimeoutMS, Callback *progressCallback, Callback *completionCallback):
+FindGitReposWorker::FindGitReposWorker(std::string path, uint32_t throttleTimeoutMS, Callback *progressCallback, Callback *completionCallback):
   AsyncWorker(completionCallback), mPath(path), mThrottleTimeoutMS(throttleTimeoutMS)
 {
   mLastScheduledCallback = uv_hrtime() / 1000000;
@@ -96,10 +96,10 @@ void FindGitReposWorker::FireProgressCallback(uv_async_t *progressAsyncHandle) {
 
   int numRepos = baton->progressQueue.count();
 
-  v8::Local<v8::Array> repositoryArray = New<v8::Array>(numRepos);
+  v8::Local<v8::Array> repositoryArray = Nan::New<v8::Array>(numRepos);
 
   for (unsigned int i = 0; i < (unsigned int)numRepos; ++i) {
-    repositoryArray->Set(i, New<v8::String>(baton->progressQueue.dequeue()).ToLocalChecked());
+    Nan::Set(repositoryArray, i, Nan::New<v8::String>(baton->progressQueue.dequeue()).ToLocalChecked());
   }
 
   v8::Local<v8::Value> argv[] = { repositoryArray };
@@ -120,10 +120,10 @@ void FindGitReposWorker::HandleOKCallback() {
   uv_close(reinterpret_cast<uv_handle_t*>(mProgressAsyncHandle), &FindGitReposWorker::CleanUpProgressBatonAndHandle);
 
   // dump vector of repositories into js callback
-  v8::Local<v8::Array> repositoryArray = New<v8::Array>((int)mRepositories.size());
+  v8::Local<v8::Array> repositoryArray = Nan::New<v8::Array>((int)mRepositories.size());
 
   for (unsigned int i = 0; i < mRepositories.size(); ++i) {
-    repositoryArray->Set(i, New<v8::String>(mRepositories[i]).ToLocalChecked());
+    Nan::Set(repositoryArray, i, Nan::New<v8::String>(mRepositories[i]).ToLocalChecked());
   }
 
   v8::Local<v8::Value> argv[] = { repositoryArray };
@@ -137,7 +137,7 @@ void FindGitReposWorker::ThrottledProgressCallback() {
     return;
   }
 
-  uint64_t now = uv_hrtime() / 1000000;
+  uint32_t now = uv_hrtime() / 1000000;
   if ((now - mLastScheduledCallback) < mThrottleTimeoutMS) {
     return;
   }
@@ -149,10 +149,10 @@ void FindGitReposWorker::ThrottledProgressCallback() {
 
 NAN_MODULE_INIT(Init)
 {
-  Set(
+  Nan::Set(
     target,
-    New<v8::String>("findGitRepos").ToLocalChecked(),
-    New<v8::FunctionTemplate>(FindGitRepos)->GetFunction()
+    Nan::New("findGitRepos").ToLocalChecked(),
+    Nan::GetFunction(Nan::New<v8::FunctionTemplate>(FindGitRepos)).ToLocalChecked()
   );
 }
 
