@@ -1,10 +1,5 @@
 #include "../includes/FindGitRepos.h"
 
-#if defined(_WIN32)
-#define S_ISDIR(m) ((m & 0170000 == 0040000))
-#define S_ISLNK(m) ((m & 0170000 == 0120000))
-#endif
-
 NAN_METHOD(FindGitRepos)
 {
   if (info.Length() < 1 || !info[0]->IsString())
@@ -41,6 +36,173 @@ FindGitReposWorker::FindGitReposWorker(std::string path, uint32_t throttleTimeou
   mProgressAsyncHandle->data = reinterpret_cast<void *>(mBaton);
 }
 
+#if defined(_WIN32)
+static void stripNTPrefix(std::wstring &path) {
+  if (path.rfind(L"\\\\?\\UNC\\", 0) != std::wstring::npos) {
+    path.replace(0, 7, L"\\");
+  } else if (path.rfind(L"\\\\?\\", 0) != std::wstring::npos) {
+    path.erase(0, 4);
+  }
+}
+
+static int convertWideCharToMultiByte(std::string *out, std::wstring input, bool wasNtPath) {
+  std::wstring _input = input;
+  if (!wasNtPath) {
+    stripNTPrefix(_input);
+  }
+
+  int utf8Length = WideCharToMultiByte(
+    CP_UTF8,
+    0,
+    _input.c_str(),
+    -1,
+    0,
+    0,
+    NULL,
+    NULL
+  );
+  out->resize(utf8Length - 1);
+  return WideCharToMultiByte(
+    CP_UTF8,
+    0,
+    _input.c_str(),
+    -1,
+    &(*out)[0],
+    utf8Length,
+    NULL,
+    NULL
+  );
+}
+
+static bool isNtPath(const std::wstring &path) {
+  return path.rfind(L"\\\\?\\", 0) == 0 || path.rfind(L"\\??\\", 0) == 0;
+}
+
+static std::wstring prefixWithNtPath(const std::wstring &path) {
+  const ULONG widePathLength = GetFullPathNameW(path.c_str(), 0, nullptr, nullptr);
+  if (widePathLength == 0) {
+    return path;
+  }
+
+  std::wstring ntPathString;
+  ntPathString.resize(widePathLength - 1);
+  if (GetFullPathNameW(path.c_str(), widePathLength, &(ntPathString[0]), nullptr) != widePathLength - 1) {
+    return path;
+  }
+
+  return ntPathString.rfind(L"\\\\", 0) == 0
+    ? ntPathString.replace(0, 2, L"\\\\?\\UNC\\")
+    : ntPathString.replace(0, 0, L"\\\\?\\");
+}
+
+static std::wstring convertMultiByteToWideChar(const std::string &multiByte) {
+  const int wlen = MultiByteToWideChar(CP_UTF8, 0, multiByte.data(), -1, 0, 0);
+
+  if (wlen == 0) {
+    return std::wstring();
+  }
+
+  std::wstring wideString;
+  wideString.resize(wlen - 1);
+
+  int failureToResolveUTF8 = MultiByteToWideChar(CP_UTF8, 0, multiByte.data(), -1, &(wideString[0]), wlen);
+  if (failureToResolveUTF8 == 0) {
+    return std::wstring();
+  }
+
+  return wideString;
+}
+
+void FindGitReposWorker::Execute() {
+  const std::wstring gitPath = L".git";
+  const std::wstring backslash = L"\\";
+  const std::wstring dot = L".";
+  const std::wstring dotdot = L"..";
+  std::list<std::wstring> foundPaths;
+  auto rootPath = convertMultiByteToWideChar(mPath);
+  const bool wasNtPath = isNtPath(rootPath);
+
+  if (!wasNtPath) {
+    rootPath = prefixWithNtPath(rootPath);
+  }
+
+  foundPaths.push_back(rootPath);
+
+  while (foundPaths.size()) {
+    WIN32_FIND_DATAW FindFileData;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+    std::wstring currentPath = foundPaths.front();
+    foundPaths.pop_front();
+
+    std::wstring wildcardPath = currentPath + L"\\*";
+    hFind = FindFirstFileW(wildcardPath.c_str(), &FindFileData);
+    if (hFind == INVALID_HANDLE_VALUE) {
+      continue;
+    }
+
+    std::list<std::wstring> tempPaths;
+    if (
+      (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY
+      && dot != FindFileData.cFileName
+      && dotdot != FindFileData.cFileName
+    ) {
+      if (gitPath == FindFileData.cFileName) {
+        std::string repoPath;
+        int success = convertWideCharToMultiByte(&repoPath, currentPath, wasNtPath);
+        if (!success) {
+          FindClose(hFind);
+          continue;
+        }
+
+        repoPath += "\\.git";
+
+        mBaton->progressQueue.enqueue(repoPath);
+        mRepositories.push_back(repoPath);
+        ThrottledProgressCallback();
+        FindClose(hFind);
+        continue;
+      }
+
+      tempPaths.push_back(currentPath + backslash + std::wstring(FindFileData.cFileName));
+    }
+
+    bool isGitRepo = false;
+    while (FindNextFileW(hFind, &FindFileData)) {
+      if (dot == FindFileData.cFileName || dotdot == FindFileData.cFileName) {
+        continue;
+      }
+
+      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY) {
+        continue;
+      }
+
+      if (gitPath == FindFileData.cFileName) {
+        std::string repoPath;
+        int success = convertWideCharToMultiByte(&repoPath, currentPath, wasNtPath);
+        isGitRepo = true;
+        if (!success) {
+          break;
+        }
+
+        repoPath += "\\.git";
+
+        mBaton->progressQueue.enqueue(repoPath);
+        mRepositories.push_back(repoPath);
+        ThrottledProgressCallback();
+        break;
+      }
+
+      tempPaths.push_back(currentPath + backslash + std::wstring(FindFileData.cFileName));
+    }
+
+    if (!isGitRepo) {
+      foundPaths.splice(foundPaths.end(), tempPaths);
+    }
+
+    FindClose(hFind);
+  }
+}
+#else
 void FindGitReposWorker::Execute() {
   uv_dirent_t directoryEntry;
   uv_fs_t scandirRequest;
@@ -89,6 +251,7 @@ void FindGitReposWorker::Execute() {
     }
   }
 }
+#endif
 
 void FindGitReposWorker::FireProgressCallback(uv_async_t *progressAsyncHandle) {
   Nan::HandleScope scope;

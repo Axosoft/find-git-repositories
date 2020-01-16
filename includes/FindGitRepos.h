@@ -6,6 +6,10 @@
 #include <vector>
 #include <list>
 
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 #include "./Queue.h"
 
 using namespace Nan;
