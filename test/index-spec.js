@@ -3,8 +3,8 @@ const fs = require('fs');
 const mlog = require('mocha-logger');
 const path = require('path');
 
-const createTree = require('./createTree');
-const findGitRepos = require('../');
+const createTree = require('./util/createTree');
+const findGitRepos = require('..');
 
 describe('findGitRepos', function() {
   describe('Arguments', function() {

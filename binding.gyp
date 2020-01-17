@@ -3,18 +3,18 @@
         "target_name": "findGitRepos",
 
         "dependencies": [
-            "openpa/openpa.gyp:openpa"
+            "vendor/openpa/openpa.gyp:openpa"
         ],
 
         "sources": [
-            "src/FindGitRepos.cpp",
-            "src/Queue.cpp",
-            "includes/FindGitRepos.h",
-            "includes/Queue.h"
+            "cpp/src/FindGitRepos.cpp",
+            "cpp/src/Queue.cpp",
+            "cpp/includes/FindGitRepos.h",
+            "cpp/includes/Queue.h"
         ],
         "include_dirs": [
             "<!(node -e \"require('nan')\")",
-            "includes"
+            "cpp/includes"
         ],
         "conditions": [
             ["OS=='win'", {
