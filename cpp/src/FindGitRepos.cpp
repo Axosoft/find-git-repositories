@@ -308,9 +308,9 @@ private:
 
 Napi::Promise FindGitRepos(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  if (info.Length() < 1 || !info[0].IsString()) {
+  if (info.Length() < 1 || !info[0].IsString() || info[0].ToString().Utf8Value().empty()) {
     Napi::Promise::Deferred deferred(env);
-    deferred.Reject(Napi::TypeError::New(env, "Must provide starting path as first argument.").Value());
+    deferred.Reject(Napi::TypeError::New(env, "Must provide non-empty starting path as first argument.").Value());
     return deferred.Promise();
   }
 
