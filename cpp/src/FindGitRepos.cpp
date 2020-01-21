@@ -122,6 +122,12 @@ public:
     const bool wasNtPath = isNtPath(rootPath);
 
     if (!wasNtPath) {
+      while (!rootPath.empty() && rootPath.back() == L'\\') {
+        rootPath.pop_back();
+      }
+      if (rootPath.empty()) {
+        return;
+      }
       rootPath = prefixWithNtPath(rootPath);
     }
 
