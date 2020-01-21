@@ -1,0 +1,37 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+name: Run Tests
+
+jobs:
+
+  test:
+    name: Tests
+    strategy:
+        matrix:
+          node: [10, 12]
+          os: [windows-2016, ubuntu-16.04, ubuntu-18.04, macOS-latest]
+          arch: [x86, x64]
+          exclude:
+            - os: ubuntu-16.04
+              arch: x86
+            - os: ubuntu-18.04
+              arch: x86
+            - os: macOS-latest
+              arch: x86
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: implausible/setup-node@feature/expose-architecture-override
+        with:
+          node-version: ${{ matrix.node }}
+          node-arch: ${{ matrix.arch }}
+
+      - run: yarn
+
+      - run: yarn test
