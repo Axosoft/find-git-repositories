@@ -2,7 +2,7 @@
   "name": "find-git-repositories",
   "version": "0.1.3",
   "description": "Finds Git Repos asynchronously",
-  "main": "js/index.js",
+  "main": "build/Release/findGitRepos.node",
   "scripts": {
     "eslint": "eslint js/src js/spec",
     "test": "mocha"
@@ -17,14 +17,13 @@
     "url": "https://github.com/implausible/find-git-repositories/issues"
   },
   "files": [
-    "js",
     "cpp",
     "vendor",
     "binding.gyp"
   ],
   "homepage": "https://github.com/implausible/find-git-repositories",
   "dependencies": {
-    "nan": "^2.14.0"
+    "node-addon-api": "*"
   },
   "devDependencies": {
     "mocha": "^7.0.0",
