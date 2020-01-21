@@ -168,7 +168,7 @@ describe('findGitRepos', function() {
             }), callbackPromisesChain);
         };
 
-        findGitRepos('C:\\', progressCallback)
+        findGitRepos(rootPath, progressCallback)
           .then(paths => Promise.all([paths, callbackPromisesChain]))
           .then(([paths]) => {
             assert.equal(triggeredProgressCallbackOnce, true, 'Never called progress callback');
