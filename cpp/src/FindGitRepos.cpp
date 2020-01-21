@@ -203,7 +203,8 @@ public:
 
       Napi::Array repositoryArray = Napi::Array::New(env, numRepos);
       for (int i = 0; i < numRepos; ++i) {
-        repositoryArray[i] = Napi::String::New(env, progressQueue->dequeue());
+        // TODO upgrade progressQueue to be type safe here
+        repositoryArray[(uint32_t)i] = Napi::String::New(env, progressQueue->dequeue());
       }
 
       jsCallback.Call({ repositoryArray });
