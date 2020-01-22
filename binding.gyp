@@ -3,19 +3,18 @@
         "target_name": "findGitRepos",
 
         "dependencies": [
-            "openpa/openpa.gyp:openpa"
+            "vendor/openpa/openpa.gyp:openpa"
         ],
 
         "sources": [
-            "src/FindGitRepos.cpp",
-            "src/Queue.cpp",
-            "includes/FindGitRepos.h",
-            "includes/Queue.h"
+            "cpp/src/FindGitRepos.cpp",
+            "cpp/src/Queue.cpp"
         ],
         "include_dirs": [
-            "<!(node -e \"require('nan')\")",
-            "includes"
+            "<!@(node -p \"require('node-addon-api').include\")",
+            "cpp/includes"
         ],
+        "defines": ["NAPI_DISABLE_CPP_EXCEPTIONS"],
         "conditions": [
             ["OS=='win'", {
                 "msvs_settings": {
@@ -24,7 +23,7 @@
                     },
                     "VCLinkerTool": {
                         "AdditionalOptions": [ "/ignore:4248" ]
-                    }
+                    },
                 },
                 "defines": [
                     "OPA_HAVE_NT_INTRINSICS=1",
@@ -45,6 +44,12 @@
                         },
                     }],
                 ]
+            }],
+            ["OS=='mac'", {
+                "cflags+": ["-fvisibility=hidden"],
+                "xcode_settings": {
+                    "GCC_SYMBOLS_PRIVATE_EXTERN": "YES"
+                }
             }],
             ["OS=='mac' or OS=='linux'", {
                 "defines": [
