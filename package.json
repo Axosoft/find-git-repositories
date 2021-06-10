@@ -9,19 +9,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/implausible/find-git-repositories.git"
+    "url": "git+https://github.com/Axosoft/find-git-repositories.git"
   },
-  "author": "Tyler Wanek",
+  "author": "Axosoft, LLC",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/implausible/find-git-repositories/issues"
+    "url": "https://github.com/Axosoft/find-git-repositories/issues"
   },
   "files": [
     "cpp",
     "vendor",
     "binding.gyp"
   ],
-  "homepage": "https://github.com/implausible/find-git-repositories",
+  "homepage": "https://github.com/Axosoft/find-git-repositories",
   "dependencies": {
     "node-addon-api": "*"
   },
