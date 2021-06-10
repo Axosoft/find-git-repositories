@@ -1,6 +1,6 @@
 {
   "name": "find-git-repositories",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Finds Git Repos asynchronously",
   "main": "build/Release/findGitRepos.node",
   "scripts": {
