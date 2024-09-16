@@ -11,7 +11,7 @@
             "cpp/src/Queue.cpp"
         ],
         "include_dirs": [
-            "<!@(node -p \"require('node-addon-api').include\")",
+            "<!(node -p \"require('node-addon-api').include_dir\")",
             "cpp/includes"
         ],
         "defines": ["NAPI_DISABLE_CPP_EXCEPTIONS"],
