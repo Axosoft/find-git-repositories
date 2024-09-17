@@ -12,7 +12,7 @@ jobs:
     name: Tests
     strategy:
         matrix:
-          node: [10, 12]
+          node: [18, 20, 22]
           os: [windows-2016, ubuntu-16.04, ubuntu-18.04, macOS-latest]
           arch: [x86, x64]
           exclude:
@@ -24,13 +24,13 @@ jobs:
               arch: x86
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
 
       - name: Use Node.js ${{ matrix.node }}
-        uses: implausible/setup-node@feature/expose-architecture-override
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          node-arch: ${{ matrix.arch }}
+          architecture: ${{ matrix.arch }}
 
       - run: yarn
 
