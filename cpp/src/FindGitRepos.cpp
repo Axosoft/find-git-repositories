@@ -31,6 +31,7 @@ public:
   {
     lastProgressCallbackTimePoint = lastProgressCallbackTimePoint - throttleTimeoutMS;
     cancel = false;
+    prevNumRepos = 0;
   }
 
   ~FindGitReposWorker() {
@@ -62,19 +63,21 @@ public:
     foundPaths.push_back(rootPath);
 
     while (!cancel && foundPaths.size()) {
+      ThrottledProgressCallback();
+
       WIN32_FIND_DATAW FindFileData;
       HANDLE hFind = INVALID_HANDLE_VALUE;
       std::wstring currentPath = foundPaths.front();
       foundPaths.pop_front();
 
+      std::uint32_t currentSubfolderDeep = count(currentPath.begin(), currentPath.end(), L'\\');
+      if (maxSubfolderDeep > 0 && (currentSubfolderDeep - basePathSubfolderDeep) > maxSubfolderDeep) {
+        break;
+      }
+
       std::wstring wildcardPath = currentPath + L"\\*";
       hFind = FindFirstFileW(wildcardPath.c_str(), &FindFileData);
       if (hFind == INVALID_HANDLE_VALUE) {
-        continue;
-      }
-
-      std::uint32_t currentSubfolderDeep = count(currentPath.begin(), currentPath.end(), L'\\');
-      if (maxSubfolderDeep > 0 && (currentSubfolderDeep - basePathSubfolderDeep) > maxSubfolderDeep) {
         continue;
       }
 
@@ -106,6 +109,8 @@ public:
 
       bool isGitRepo = false;
       while (!cancel && FindNextFileW(hFind, &FindFileData)) {
+        ThrottledProgressCallback();
+
         if (dot == FindFileData.cFileName || dotdot == FindFileData.cFileName) {
           continue;
         }
@@ -151,22 +156,25 @@ public:
     cancel = false;
 
     while (!cancel && foundPaths.size()) {
+      ThrottledProgressCallback();
+  
       std::list<std::string> temp;
       bool isGitRepo = false;
       std::string currentPath = foundPaths.front();
       foundPaths.pop_front();
 
-      if (uv_fs_scandir(NULL, &scandirRequest, (currentPath + '/').c_str(), 0, NULL) < 0) {
-        continue;
-      }
-
       std::uint32_t currentSubfolderDeep = count(currentPath.begin(), currentPath.end(), '/');
       if (maxSubfolderDeep > 0 && (currentSubfolderDeep - basePathSubfolderDeep) > maxSubfolderDeep) {
+        break;
+      }
+
+      if (uv_fs_scandir(NULL, &scandirRequest, (currentPath + '/').c_str(), 0, NULL) < 0) {
         continue;
       }
 
       while (!cancel && uv_fs_scandir_next(&scandirRequest, &directoryEntry) != UV_EOF) {
         std::string nextPath = currentPath + '/' + directoryEntry.name;
+        ThrottledProgressCallback();
 
         if (directoryEntry.type == UV_DIRENT_UNKNOWN) {
           uv_fs_t lstatRequest;
@@ -183,7 +191,6 @@ public:
 
         if (strcmp(directoryEntry.name, ".git")) {
           temp.push_back(nextPath);
-          ThrottledProgressCallback();
           continue;
         }
 
@@ -218,9 +225,6 @@ public:
   void ThrottledProgressCallback() {
     auto callback = [&cancel = cancel](Napi::Env env, Napi::Function jsCallback, RepositoryQueue *progressQueue) {
       int numRepos = progressQueue->count();
-      if (numRepos == 0) {
-        return;
-      }
 
       Napi::Array repositoryArray = Napi::Array::New(env, numRepos);
       for (int i = 0; i < numRepos; ++i) {
@@ -234,8 +238,9 @@ public:
       }
     };
 
-    if (throttleTimeoutMS.count() == 0) {
+    if (throttleTimeoutMS.count() == 0 && prevNumRepos != progressQueue->count()) {
       progressCallback.NonBlockingCall(progressQueue.get(), callback);
+      prevNumRepos = progressQueue->count();
       return;
     }
 
@@ -258,6 +263,7 @@ private:
   std::chrono::steady_clock::time_point lastProgressCallbackTimePoint;
   std::vector<std::string> repositories;
   bool cancel;
+  int prevNumRepos; // Used to determine if we should throttle if throttleTimeoutMS is 0
 };
 
 Napi::Promise FindGitRepos(const Napi::CallbackInfo& info) {
