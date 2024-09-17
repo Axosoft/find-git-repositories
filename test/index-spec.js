@@ -19,6 +19,36 @@ describe('findGitRepos', function() {
         .then(() => done('Should not have succeeded'))
         .catch(() => done());
     });
+
+    it('will fail if throttleTimeoutMS value is not a number', function(done) {
+      findGitRepos('test', () => {}, { throttleTimeoutMS: 'WrongValue' })
+        .then(() => done('Should not have succeeded'))
+        .catch(() => done());
+    });
+
+    it('will fail if throttleTimeoutMS number is less than 0', function(done) {
+      findGitRepos('test', () => {}, { throttleTimeoutMS: -1 })
+        .then(() => done('Should not have succeeded'))
+        .catch(() => done());
+    });
+
+    it('will fail if throttleTimeoutMS number is larger than 60000', function(done) {
+      findGitRepos('test', () => {}, { throttleTimeoutMS: 60001 })
+        .then(() => done('Should not have succeeded'))
+        .catch(() => done());
+    });
+
+    it('will fail if maxSubfolderDeep is not a number', function(done) {
+      findGitRepos('test', () => {}, { maxSubfolderDeep: 'WrongValue' })
+        .then(() => done('Should not have succeeded'))
+        .catch(() => done());
+    });
+
+    it('will fail if maxSubfolderDeep number is less than 0', function(done) {
+      findGitRepos('test', () => {}, { maxSubfolderDeep: -1 })
+        .then(() => done('Should not have succeeded'))
+        .catch(() => done());
+    });
   });
 
   describe('Features', function() {
@@ -194,5 +224,111 @@ describe('findGitRepos', function() {
           .catch(error => done(error));
       });
     }
+
+    it('can find repositories at a specified subfolders depth in a file system', function(done) {
+      const maxSubfolderDeep = 2;
+      const basePathSubfolderDeep = basePath.split(path.sep).length;
+      const { repositoryPaths } = this;
+
+      let callbackPromisesChain = Promise.resolve();
+      let triggeredProgressCallbackOnce = false;
+
+      const progressCallback = paths => {
+        triggeredProgressCallbackOnce = true;
+
+        callbackPromisesChain = paths.reduce((chain, repositoryPath) =>
+          chain.then(() => {
+            assert.equal(
+              repositoryPaths[repositoryPath],
+              Boolean(repositoryPaths[repositoryPath]),
+              'Found a repo that should not exist'
+            );
+            
+            const currentSubfolderDeep = repositoryPath.split(path.sep).length;
+            assert.equal(
+              (currentSubfolderDeep - basePathSubfolderDeep) <= maxSubfolderDeep,
+              true,
+              'Found a repo that is too deep'
+            );
+
+            assert.equal(repositoryPaths[repositoryPath], false, 'Duplicate repositoryPath received');
+            repositoryPaths[repositoryPath] = true;
+          }), callbackPromisesChain);
+      };
+
+      findGitRepos(basePath, progressCallback, { maxSubfolderDeep: maxSubfolderDeep })
+        .then(paths => Promise.all([paths, callbackPromisesChain]))
+        .then(([paths]) => {
+          assert.equal(triggeredProgressCallbackOnce, true, 'Never called progress callback');
+          paths.forEach(repositoryPath => {
+            assert.equal(
+              repositoryPaths[repositoryPath],
+              Boolean(repositoryPaths[repositoryPath]),
+              'Found a repo that should not exist'
+            );
+
+            const currentSubfolderDeep = repositoryPath.split(path.sep).length;
+            assert.equal(
+              (currentSubfolderDeep - basePathSubfolderDeep) <= maxSubfolderDeep,
+              true,
+              'Found a repo that is too deep'
+            );
+
+            repositoryPaths[repositoryPath] = true;
+          });
+
+          Object.keys(repositoryPaths)
+            .filter(repositoryPath => {
+              const currentSubfolderDeep = repositoryPath.split(path.sep).length;
+              return (currentSubfolderDeep - basePathSubfolderDeep) <= maxSubfolderDeep;
+            })
+            .forEach(repositoryPath => {
+              assert.equal(repositoryPaths[repositoryPath], true, 'Did not find a path in the file system');
+            });
+        })
+        .then(() => done())
+        .catch(error => done(error));
+    });
+
+    it('can cancel the repository search', function(done) {
+      const { repositoryPaths } = this;
+
+      let callbackPromisesChain = Promise.resolve();
+      let triggeredProgressCallbackOnce = false;
+
+      const maxCallbackCalls = 3;
+      let numCallbackCalls = 0;
+
+      const progressCallback = paths => {
+        triggeredProgressCallbackOnce = true
+
+        callbackPromisesChain = paths.reduce((chain, repositoryPath) =>
+          chain.then(() => {
+            repositoryPaths[repositoryPath] = true;
+          }), callbackPromisesChain);
+
+        if (numCallbackCalls >= maxCallbackCalls) {
+          return true;
+        }
+
+        numCallbackCalls++;
+      };
+
+      findGitRepos(basePath, progressCallback)
+        .then(paths => Promise.all([paths, callbackPromisesChain]))
+        .then(([paths]) => {
+          assert.equal(triggeredProgressCallbackOnce, true, 'Never called progress callback');
+          paths.forEach(repositoryPath => {
+            repositoryPaths[repositoryPath] = true;
+          });
+
+          const totalProcessedPaths = Object.keys(repositoryPaths).filter(repositoryPath => repositoryPaths[repositoryPath]).length;
+          const totalPaths = Object.keys(repositoryPaths).length;
+
+          assert.equal(totalProcessedPaths < totalPaths, true, 'Did not cancel the search');
+        })
+        .then(() => done())
+        .catch(error => done(error));
+    });
   });
 });
