@@ -13,15 +13,7 @@ jobs:
     strategy:
         matrix:
           node: [18, 20, 22]
-          os: [windows-2016, ubuntu-16.04, ubuntu-18.04, macOS-latest]
-          arch: [x86, x64]
-          exclude:
-            - os: ubuntu-16.04
-              arch: x86
-            - os: ubuntu-18.04
-              arch: x86
-            - os: macOS-latest
-              arch: x86
+          os: [windows-latest, ubuntu-20.04, ubuntu-22.04, ubuntu-24.04, macOS-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +22,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          architecture: ${{ matrix.arch }}
 
       - run: yarn
 
