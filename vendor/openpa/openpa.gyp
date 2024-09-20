@@ -45,7 +45,7 @@
                         }],
                     ]
                 }],
-                ["OS=='mac' or OS=='linux'", {
+                ["OS=='mac' or OS=='linux' or OS=='freebsd'", {
                     "sources": [
                         "src/primitives/opa_gcc_intrinsics.h"
                     ],

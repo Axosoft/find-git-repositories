@@ -51,7 +51,7 @@
                     "GCC_SYMBOLS_PRIVATE_EXTERN": "YES"
                 }
             }],
-            ["OS=='mac' or OS=='linux'", {
+            ["OS=='mac' or OS=='linux' or OS=='freebsd'", {
                 "defines": [
                     "OPA_HAVE_GCC_INTRINSIC_ATOMICS=1",
                     "HAVE_STDDEF_H=1",
